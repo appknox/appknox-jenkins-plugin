@@ -1,4 +1,4 @@
-# Appknox Jenkins Plugiin
+# Appknox Jenkins Plugin
 
 The Appknox Jenkins Plugin allows you to perform Appknox security scan on your mobile application binary. The APK/IPA built from your CI pipeline will be uploaded to Appknox platform which performs static scan and the build will be errored according to the chosen risk threshold.
 
@@ -15,23 +15,21 @@ Generate a personal access token from <a href="https://secure.appknox.com/settin
 In your Jenkinsfile Add this after building your Application stage.
 
 ```
-stage('Appknox Scan') {
+stages {
+        stage('Appknox Scan') {
             steps {
                 script {
-                    def apkFilePath = 'app/build/outputs/apk/debug/app-debug.apk'  // Adjust this path as necessary
-                    def accessToken = params.APPKNOX_ACCESS_TOKEN
-                    def riskThreshold = params.RISK_THRESHOLD
-
-                    // Trigger Appknox Jenkins Plugin
-                    build job: 'appknox-jenkins-plugin', 
-                    parameters: [
-                        string(name: 'APPKNOX_ACCESS_TOKEN', value: accessToken),
-                        string(name: 'FILE_PATH', value: apkFilePath),
-                        string(name: 'RISK_THRESHOLD', value: riskThreshold)
-                    ]
+                    step([
+                        $class: 'AppknoxPlugin',
+                        accessToken: params.APPKNOX_ACCESS_TOKEN,
+                        filePath: params.FILE_PATH,
+                        riskThreshold: params.RISK_THRESHOLD.toUpperCase()
+                    ])
                 }
             }
         }
+    }
+    
 ```
 
 ## Inputs
@@ -48,39 +46,38 @@ Example:
 ```
 pipeline {
     agent any
-    
     parameters {
         string(name: 'APPKNOX_ACCESS_TOKEN', defaultValue: '', description: 'Appknox Access Token')
-        string(name: 'RISK_THRESHOLD', defaultValue: 'LOW', description: 'Risk Threshold')
+        choice(name: 'RISK_THRESHOLD', choices: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'], description: 'Risk Threshold')
     }
-    
     stages {
-        stage('Checkout') {
+        stage('Build App') {
             steps {
-                checkout scm
+                sh './gradlew assembleDebug' 
+                
+                // Capture the path to the generated APK
+                script {
+                    def apkPath = sh(returnStdout: true, script: 'find . -name "*.apk"').trim()
+                    // Assuming there's only one APK, adjust this logic if needed
+                    if (apkPath) {
+                        // Set FILE_PATH parameter for Appknox scan stage
+                        params.FILE_PATH = apkPath
+                    } else {
+                        error "Failed to find APK file in the build output."
+                    }
+                }
             }
         }
-        
-        stage('Build') {
-            steps {
-                sh './gradlew build'  // Assuming the customer uses Gradle to build their project
-            }
-        }
-        
         stage('Appknox Scan') {
             steps {
                 script {
-                    def apkFilePath = 'app/build/outputs/apk/debug/app-debug.apk'  // Adjust this path as necessary
-                    def accessToken = params.APPKNOX_ACCESS_TOKEN
-                    def riskThreshold = params.RISK_THRESHOLD
-
-                    // Trigger Appknox Jenkins Plugin
-                    build job: 'appknox-jenkins-plugin', 
-                    parameters: [
-                        string(name: 'APPKNOX_ACCESS_TOKEN', value: accessToken),
-                        string(name: 'FILE_PATH', value: apkFilePath),
-                        string(name: 'RISK_THRESHOLD', value: riskThreshold)
-                    ]
+                    // Perform Appknox scan using AppknoxPlugin
+                    step([
+                        $class: 'AppknoxPlugin',
+                        accessToken: params.APPKNOX_ACCESS_TOKEN,
+                        filePath: params.FILE_PATH,
+                        riskThreshold: params.RISK_THRESHOLD.toUpperCase()
+                    ])
                 }
             }
         }
