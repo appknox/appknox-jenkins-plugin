@@ -9,13 +9,21 @@ import hudson.model.BuildListener;
 import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import hudson.security.ACL;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import jenkins.model.Jenkins;
 import jenkins.tasks.SimpleBuildStep;
 import org.jenkinsci.Symbol;
+import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
+import hudson.util.FormValidation;
+import org.kohsuke.stapler.QueryParameter;
+
+import com.cloudbees.plugins.credentials.CredentialsMatchers;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -28,21 +36,21 @@ import java.util.List;
 import org.apache.commons.io.FileUtils;
 
 public class AppknoxPlugin extends Builder implements SimpleBuildStep {
-    private final String accessToken;
+    private final String credentialsId;
     private final String filePath;
     private final String riskThreshold;
     private static final String binaryVersion = "1.3.1";
     private static final String CLI_DOWNLOAD_PATH = System.getProperty("user.home") + File.separator + "appknox";
 
     @DataBoundConstructor
-    public AppknoxPlugin(String accessToken, String filePath, String riskThreshold) {
-        this.accessToken = accessToken;
+    public AppknoxPlugin(String accessTokenID, String filePath, String riskThreshold) {
+        this.credentialsId = accessTokenID;
         this.filePath = filePath;
         this.riskThreshold = riskThreshold;
     }
 
-    public String getAccessToken() {
-        return accessToken;
+    public String getCredentialsId() {
+        return credentialsId;
     }
 
     public String getFilePath() {
@@ -153,6 +161,11 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
     }
 
     private String uploadFile(String appknoxPath, TaskListener listener) throws IOException, InterruptedException {
+        String accessToken = getAccessToken(listener);
+        if (accessToken == null) {
+            return null;
+        }
+        
         List<String> command = new ArrayList<>();
         command.add(appknoxPath);
         command.add("upload");
@@ -184,6 +197,11 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
     }
 
     private boolean runCICheck(String appknoxPath, String fileID, TaskListener listener) throws IOException, InterruptedException {
+        String accessToken = getAccessToken(listener);
+        if (accessToken == null) {
+            return false;
+        }
+        
         List<String> command = new ArrayList<>();
         command.add(appknoxPath);
         command.add("cicheck");
@@ -192,22 +210,52 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         command.add(accessToken);
         command.add("--risk-threshold");
         command.add(riskThreshold);
-
+    
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.redirectErrorStream(true);
         Process process = pb.start();
-
+    
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             StringBuilder output = new StringBuilder();
             String line;
+            boolean foundStarted = false;
+    
             while ((line = reader.readLine()) != null) {
-                output.append(line).append("\n");
+                if (!foundStarted) {
+                    // Skip lines until "Found" is encountered
+                    if (line.contains("Found")) {
+                        output.append(line).append("\n");
+                        foundStarted = true;
+                    }
+                } else {
+                    // Start capturing output after "Found"
+                    output.append(line).append("\n");
+                }
             }
 
+            if (!foundStarted) {
+                listener.getLogger().println("No 'Found' line encountered in the output.");
+                return false; 
+            }
             listener.getLogger().println("CICheck Output:");
             listener.getLogger().println(output.toString());
-
+    
             return process.exitValue() == 0;
+        }
+    }
+
+    private String getAccessToken(TaskListener listener) {
+        Jenkins jenkins = Jenkins.get();
+        StringCredentials credentials = CredentialsMatchers.firstOrNull(
+            CredentialsProvider.lookupCredentials(StringCredentials.class, jenkins, ACL.SYSTEM, URIRequirementBuilder.create().build()),
+            CredentialsMatchers.withId(credentialsId)
+        );
+
+        if (credentials != null) {
+            return credentials.getSecret().getPlainText();
+        } else {
+            listener.getLogger().println("Failed to retrieve access token from credentials.");
+            return null;
         }
     }
 
@@ -226,6 +274,20 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         @Override
         public String getDisplayName() {
             return "Appknox Plugin";
+        }
+
+        public FormValidation doCheckFilePath(@QueryParameter String value) {
+            if (value.isEmpty()) {
+                return FormValidation.error("File Path must not be empty");
+            }
+            return FormValidation.ok();
+        }
+
+        public FormValidation doCheckRiskThreshold(@QueryParameter String value) {
+            if (value.isEmpty()) {
+                return FormValidation.error("Risk Threshold must not be empty");
+            }
+            return FormValidation.ok();
         }
     }
 }

@@ -2,37 +2,40 @@
 pipeline {
     agent any
     parameters {
-        string(name: 'APPKNOX_ACCESS_TOKEN', defaultValue: '', description: 'Appknox Access Token')
         choice(name: 'RISK_THRESHOLD', choices: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'], description: 'Risk Threshold')
     }
     stages {
         stage('Build App') {
             steps {
-                sh './gradlew assembleDebug' 
-                
-                // Capture the path to the generated APK
+                git 'https://github.com/ashujha301/mfva'
+            }
+        }
+        stage('Build App') {
+            steps {
+                // Build the app using specific Gradle version
                 script {
-                    def apkPath = sh(returnStdout: true, script: 'find . -name "*.apk"').trim()
-                    // Assuming there's only one APK, adjust this logic if needed
-                    if (apkPath) {
-                        // Set FILE_PATH parameter for Appknox scan stage
-                        params.FILE_PATH = apkPath
+                    if (isUnix()) {
+                        sh './gradlew build'
+                        FILE_PATH = "${WORKSPACE}/app/build/outputs/apk/debug/app-debug.apk"
                     } else {
-                        error "Failed to find APK file in the build output."
+                        bat './gradlew build'
+                        FILE_PATH = "${WORKSPACE}\\app\\build\\outputs\\apk\\debug\\app-debug.apk"
                     }
+                    echo "Found APK: ${FILE_PATH}"
                 }
             }
         }
         stage('Appknox Scan') {
             steps {
                 script {
-                    // Perform Appknox scan using AppknoxPlugin
-                    step([
-                        $class: 'AppknoxPlugin',
-                        accessToken: params.APPKNOX_ACCESS_TOKEN,
-                        filePath: params.FILE_PATH,
-                        riskThreshold: params.RISK_THRESHOLD.toUpperCase()
-                    ])
+                        // Perform Appknox scan using AppknoxPlugin
+                        step([
+                            $class: 'AppknoxPlugin',
+                            accessTokenID: 'appknox-access-token', //Specify the Appknox Access Token ID. Ensure the ID matches with the ID given while configuring Appknox Access Token in the credentials.
+                            filePath: FILE_PATH,
+                            riskThreshold: params.RISK_THRESHOLD.toUpperCase()
+                        ])
+                    
                 }
             }
         }

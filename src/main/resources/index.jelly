@@ -1,4 +1,8 @@
 <?jelly escape-by-default='true'?>
 <div>
     Appknox plugin
+<<<<<<< HEAD
 </div>
+=======
+</div>
+>>>>>>> a4ea637993bfac2093e15f70a765c003573a4ef9
