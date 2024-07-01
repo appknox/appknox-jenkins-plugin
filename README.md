@@ -1,66 +1,71 @@
-# Appknox Jenkins Plugin
+# Appknox Security Scan Plugin
 
-The Appknox Jenkins Plugin allows you to perform Appknox security scan on your mobile application binary. The APK/IPA built from your CI pipeline will be uploaded to Appknox platform which performs static scan and the build will be errored according to the chosen risk threshold.
+The Appknox Security Scan Plugin allows you to perform Appknox security scan on your mobile application binary. The APK/IPA built from your CI pipeline will be uploaded to Appknox platform which performs static scan and the build will be errored according to the chosen risk threshold.
 
 ## How to use it?
 
-### Step 1: Get your Appknox access token
+### Step 1: Get your Appknox Access Token
 
 Sign up on [Appknox](https://appknox.com).
 
 Generate a personal access token from <a href="https://secure.appknox.com/settings/developersettings" target="_blank">Developer Settings</a>
 
-### Step 2: Store Appknox Access Token in credentials
+### Step 2: Store Appknox Access Token in Credentials
 
-Select Credentials from sideline from Manage Jenkins -> Security -> credentials:
+Select credentials options from Manage Jenkins -> Credentials:
 
-![Credentials](https://github.com/ashujha301/appknox-jenkins-plugin/blob/main/images/jenkins1.png)
+![Credentials](https://github.com/ashujha301/appknox-security-scan-plugin/blob/main/images/jenkins1.png)
 
-Store Appknox Access Token as Global credential:
+Store Appknox Access Token as Global Credential:
 
-![Global Credentials](https://github.com/ashujha301/appknox-jenkins-plugin/blob/main/images/jenkins2.png)
+![Global Credentials](https://github.com/ashujha301/appknox-security-scan-plugin/blob/main/images/jenkins2.png)
 
-Select Kind as Secret Text and store the Appknox Access Token with proper Id and description:
+Select Kind as "Secret Text" and store the Appknox Access Token with desired "ID" and "Description":
 
-![Kind Credentials](https://github.com/ashujha301/appknox-jenkins-plugin/blob/main/images/jenkins4.png)
+![Kind Credentials](https://github.com/ashujha301/appknox-security-scan-plugin/blob/main/images/jenkins4.png)
 
-## Appknox Plugin As Jenkins Job
+## Appknox Plugin as Jenkins Job
 
-### Step 1: Define Job name
+### Step 1: Define Job Name
 
-Add job name And select Freestyle project:
+Add job name and select Freestyle project:
 
-![Jenkins Job](https://github.com/ashujha301/appknox-jenkins-plugin/blob/main/images/jenkins5.png)
+![Jenkins Job](https://github.com/ashujha301/appknox-security-scan-plugin/blob/main/images/jenkins5.png)
 
 ### Step 2: Add Appknox Plugin
 
-Add Appknox Plugin from build Step:
+Add Appknox Plugin from build step:
 
-![Appknox Plugin](https://github.com/ashujha301/appknox-jenkins-plugin/blob/main/images/jenkins6.png)
+![Appknox Plugin](https://github.com/ashujha301/appknox-security-scan-plugin/blob/main/images/jenkins6.png)
 
 ### Step 3: Configure Appknox Plugin
 
-Add Details in the Appknox Plugin Configuration:
+Select Access Token from the dropdown:
 
-![Appknox Plugin Configuration](https://github.com/ashujha301/appknox-jenkins-plugin/blob/main/images/jenkins7.png)
+![Appknox Plugin Token](https://github.com/ashujha301/appknox-security-scan-plugin/blob/main/images/jenkins10.png)
 
 #### Note:
 
-Ensure the Appknox Access Token ID matches with the ID given while configuring Appknox Access Token in the credentials.
+Ensure the Access Token matches with the Access Token given while configuring Appknox Access Token in the credentials.
 
-## Appknox Plugin As Pipeline
+Add other details in the Appknox Plugin Configuration:
+
+![Appknox Plugin Configuration](https://github.com/ashujha301/appknox-security-scan-plugin/blob/main/images/jenkins7.png)
+
+
+## Appknox Plugin as Pipeline
 
 ### Step 1: Define Pipeline Name
 
-Add Pipeline name And select Pipeline project:
+Add Pipeline name and select Pipeline project:
 
-![Jenkins Job](https://github.com/ashujha301/appknox-jenkins-plugin/blob/main/images/jenkins8.png)
+![Jenkins Job](https://github.com/ashujha301/appknox-security-scan-plugin/blob/main/images/jenkins8.png)
 
 ### Step 2: Appknox Plugin Pipeline Script
 
 Add Appknox Plugin Stage:
 
-![Appknox Plugin Pipeline](https://github.com/ashujha301/appknox-jenkins-plugin/blob/main/images/jenkins9.png)
+![Appknox Plugin Pipeline](https://github.com/ashujha301/appknox-security-scan-plugin/blob/main/images/jenkins9.png)
 
 #### Note:
 
@@ -76,7 +81,7 @@ stages {
                         // Perform Appknox scan using AppknoxPlugin
                         step([
                             $class: 'AppknoxPlugin',
-                            accessTokenID: 'your-accessToken-ID', //Specify the Appknox Access Token ID. Ensure the ID matches with the ID given while configuring Appknox Access Token in the credentials.
+                            credentialsId: 'your-appknox-access-token-ID', //Specify the Appknox Access Token ID. Ensure the ID matches with the ID given while configuring Appknox Access Token in the credentials.
                             filePath: FILE_PATH,
                             riskThreshold: params.RISK_THRESHOLD.toUpperCase()
                         ])
@@ -92,7 +97,7 @@ stages {
 
 | Key                     | Value                        |
 |-------------------------|------------------------------|
-| `accessTokenID`         | Personal access token ID |
+| `credentialsId`         | Personal appknox access token ID |
 | `file_path`             | File path to the mobile application binary to be uploaded |
 | `risk_threshold`        | Risk threshold value for which the CI should fail. <br><br>Accepted values: `CRITICAL, HIGH, MEDIUM & LOW` <br><br>Default: `LOW` |
 
@@ -111,18 +116,15 @@ pipeline {
     stages {
         stage('Build App') {
             steps {
-                git 'https://github.com/username/repo'
+                git 'https://github.com/yourgithub/reponame'
             }
         }
         stage('Build App') {
             steps {
-                // Build the app using specific Gradle version
+                // Build the app using specific build, Example is given using gradle
                 script {
-                    if (isUnix()) {
-                        sh './gradlew build'
-                    } else {
-                        bat './gradlew build'
-                    }
+                    sh './gradlew build'
+                    FILE_PATH = "${WORKSPACE}/app/build/outputs/apk/debug/app.aab"
                 }
             }
         }
@@ -135,7 +137,7 @@ pipeline {
                         echo "Using file path: ${FILE_PATH}"
                         step([
                             $class: 'AppknoxPlugin',
-                            accessToken: APPKNOX_ACCESS_TOKEN,
+                            credentialsId: 'your-appknox-access-token-id', //Specify the Appknox Access Token ID. Ensure the ID matches with the ID given while configuring Appknox Access Token in the credentials.
                             filePath: FILE_PATH,
                             riskThreshold: params.RISK_THRESHOLD.toUpperCase()
                         ])
