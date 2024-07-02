@@ -68,7 +68,7 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
             <artifactId>credentials</artifactId>
-            <version>2.6.1</version>
+            <version>1350.v1b_df4d227d1b_</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
