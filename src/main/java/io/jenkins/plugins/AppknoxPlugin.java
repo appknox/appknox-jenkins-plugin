@@ -272,7 +272,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             while ((line = reader.readLine()) != null) {
                 if (!foundStarted) {
                     // Skip lines until "Found" is encountered
-                    if (line.contains("Found")) {
+                    if (line.contains("Found") || line.contains("No")) {
                         output.append(line).append("\n");
                         run.setDescription(output.toString() + "Check Console Output for more details.");
                         foundStarted = true;
@@ -284,7 +284,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             }
 
             if (!foundStarted) {
-                listener.getLogger().println("No 'Found' line encountered in the output.");
+                listener.getLogger().println("No Line with 'Found' or 'No' encountered in the output.");
                 return false;
             }
             listener.getLogger().println("CICheck Output:");
